@@ -1,0 +1,101 @@
+Agda Makefile
+=============
+
+A Makefile for building Agda projects, with dependencies downloaded by curl.
+
+Example
+-------
+
+Imagine creating a project foo, with dependencies bar and baz. The makefile
+for foo begins by declaring its dependencies:
+
+  pkgid = foo
+  dependencies = bar baz
+
+and the dependency tarball URIs:
+
+  export bar ?= http://example.com/bar.tgz
+  export baz ?= http://example.com/baz.tgz
+
+then it downloads and imports the common makefile:
+
+  export agdamakefileuri ?= https://github.com/agda/agda-makefile/raw/v0.0.1/Makefile
+  export agdamakefile ?= $(CURDIR)/build/share/make/agda-makefile
+  export CURL ?= curl
+
+  $(agdamakefile):
+    $(CURL) --create-dir -o $@ $(agdamakefileuri)
+
+  include $(agdamakefile)
+
+At this point, foo's makefile has bootstrapped itself by downloading
+and including the master Makefile. The rest of the makefile is as per
+usual, but can make use of the target install-dependencies, which
+downloads and installs the dependent projects. It can also use some
+predefined targets for typechecking Agda files and generating htmt
+documentation from Agda files:
+
+  install-agda: $(agdadir)/Foo.agdai
+
+  install-html: $(htmldir)/Foo.html
+
+  install-doc:
+    $(INSTALL) -D README $(docdir)
+    $(INSTALL) -D LICENSE $(docdir)
+
+  install: install-dependencies install-agda install-html install-doc
+
+Assumptions
+-----------
+
+This all assumes quite a bit about the dependent projects:
+
+1. They must have URIs which return a project tarball.
+
+2. Each project contains top-level Makefiles: make will (rather inefficiently)
+   search the project looking for Makefiles, searching recursively through
+   the children of any directory which doesn't contain a Makefile.  Life
+   will be better for all concerned if projects put a Makefile very close
+   to top-level!
+
+3. Each makefile should define at least the targets "clean" and
+   "install", which should install files in the following directories:
+
+     $(agdadir): Agda source files and interface files
+     $(docdir): Documentation
+     $(htmldir): HTML files
+
+The environment variables their default values are:
+
+  srcdir   = $(CURDIR)/src
+  builddir = $(CURDIR)/build
+  prefix   = $(builddir)
+  datadir  = $(prefix)/share
+  agdadir  = $(datadir)/agda
+  tmpdir   = $(builddir)/tmp/$(pkgid)
+  docdir   = $(datadir)/doc/$(pkgid)
+  htmldir  = $(docdir)/html
+
+There are targets:
+
+  $(agdadir)/<filename>.agda:
+    copies the file from $(srcdir)/<filename>.agda
+
+  $(agdadir)/<filename>.agdai:
+    typechecks $(agdadir)/<filename>.agda
+
+  $(htmldir)/<filename>.html:
+    generates documentation from $(agdadir)/<filename>.agda
+
+To handle dependencies, there are targets:
+
+  install-dependencies
+  clean-dependencies
+
+which download and unpack the dependencies, then recursively call make
+install or make clean on them. 
+
+There is very minimal version control: if make discovers that a
+dependency has been defined as coming from two different URIs, then it
+raises an error. The parent project can try to resolve this by
+providing its own URI for the conflicting dependency.
