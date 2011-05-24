@@ -73,11 +73,11 @@ $(htmldir)/%.html: $(agdadir)/%.agda $(agdafiles) $(agdadeps) $(htmldir)
 .PRECIOUS: $(cachedir)/http/% $(cachedir)/https/% $(cachedir)/file/%
 
 $(cachedir)/http/%:
-	$(CURL) --create-dirs -o $(tmpdir)/http/$* http://$*
+	$(CURL) --create-dirs -o $(tmpdir)/http/$* -L http://$*
 	$(INSTALL) -D $(tmpdir)/http/$* $@
 
 $(cachedir)/https/%:
-	$(CURL) --create-dirs -o $(tmpdir)/https/$* https://$*
+	$(CURL) --create-dirs -o $(tmpdir)/https/$* -L https://$*
 	$(INSTALL) -D $(tmpdir)/https/$* $@
 
 $(cachedir)/file/%: /%
