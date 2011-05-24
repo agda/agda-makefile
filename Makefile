@@ -5,8 +5,12 @@ export cachedir ?= $(builddir)/cache
 export depdir ?= $(builddir)/dependencies
 
 export prefix ?= $(builddir)
+export bindir ?= $(prefix)/bin
+export libdir ?= $(prefix)/lib
 export datadir ?= $(prefix)/share
+export cabaldir ?= $(builddir)/cabal
 export agdadir ?= $(datadir)/agda
+export haskelldir ?= $(datadir)/haskell
 
 # Try to guess the stdlib location
 
@@ -25,21 +29,30 @@ htmldir ?= $(docdir)/html
 srcdir ?= $(CURDIR)/src
 srcfiles ?= $(filter-out %\#,$(filter-out %~,$(call findfiles,$(srcdir))))
 agdafiles ?= $(patsubst $(srcdir)/%,$(agdadir)/%,$(filter %.agda,$(srcfiles)))
+haskellfiles ?= $(patsubst $(srcdir)/%,$(haskelldir)/%,$(filter %.hs,$(srcfiles)))
 
-agdadeps ?= $(call findfiles,$(agdadir))
+agdadeps ?= $(filter %.agda,$(call findfiles,$(agdadir)))
+haskelldeps ?= $(filter %.hs,$(call findfiles,$(haskelldir)))
 
 # Default values for programs
 
 export AGDA ?= agda
+export AGDAC ?= $(AGDA) -c
 export AGDADOC ?= $(AGDA) --html
+export CABAL ?= cabal
 export CURL ?= curl
+export GHC ?= ghc
+export GHCPKG ?= ghc-pkg
 export INSTALL ?= install
 export TAR ?= tar
 
 # Default values for program flags
 
 export AGDAFLAGS ?= $(addprefix -i,$(agdadir) $(stdlibdir))
+export AGDACFLAGS ?= $(AGDAFLAGS) $(addprefix --ghc-flag=,$(GHCFLAGS))
 export AGDADOCFLAGS ?= $(AGDAFLAGS)
+export CABALFLAGS ?= --prefix=$(prefix) --libdir=$(libdir)
+export GHCFLAGS ?= -odir$(libdir) $(addprefix -i,$(stdlibdir)) -package-conf$(cabaldir)
 
 # A function to find all the files under a given directory
 # (find is not one of the "blessed" applications for portable makefiles).
@@ -52,18 +65,26 @@ stringeq = $(if $(subst $(1),,$(2)),,$(if $(subst $(2),,$(1)),,true))
 
 # Create the target directories if need be
 
-$(agdadir) $(builddir) $(cachedir) $(datadir) $(depdir) $(docdir) $(htmldir) $(tmpdir):
+$(agdadir) $(bindir) $(builddir) $(cachedir) $(datadir) $(depdir) $(docdir) $(htmldir) $(tmpdir):
 	$(INSTALL) -d $@
 
 # Rules for building Agda libraries
 
-.PRECIOUS: $(agdadir)/%.agda $(agdadir)/%.agdai $(htmldir)/%.html
+.PRECIOUS: $(agdadir)/%.agda $(haskelldir)/%.hs $(agdadir)/%.agdai $(htmldir)/%.html
 
 $(agdadir)/%.agda: $(srcdir)/%.agda
 	$(INSTALL) -D $< $@
 
+$(haskelldir)/%.hs: $(srcdir)/%.hs
+	$(INSTALL) -D $< $@
+
 $(agdadir)/%.agdai: $(agdadir)/%.agda $(agdafiles) $(agdadeps)
 	$(AGDA) $(AGDAFLAGS) $<
+
+$(bindir)/%: $(agdadir)/%.agda $(agdafiles) $(haskellfiles) $(agdadeps) $(haskelldeps) $(bindir)
+	$(AGDAC) $(AGDACFLAGS) --compile-dir=$(haskelldir) $<
+	$(INSTALL) -d $(dir $@)
+	mv $(haskelldir)/$(notdir $@) $@
 
 $(htmldir)/%.html: $(agdadir)/%.agda $(agdafiles) $(agdadeps) $(htmldir)
 	$(AGDADOC) $(AGDADOCFLAGS) --html-dir $(htmldir) $<
@@ -162,3 +183,18 @@ install-dependency-%: $(depdir)/%/installed
 
 install-dependencies:
 	$(MAKE) $(addprefix install-dependency-,$(dependencies))
+
+# Targets to install dependencies via cabal
+
+.PRECIOUS: $(cabaldir) $(depdir)/%/caballed
+
+$(cabaldir):
+	$(GHCPKG) init $(GHCPKGFLAGS) $@
+
+$(depdir)/%/caballed: $(cabaldir)
+	$(CABAL) --package-db=$(cabaldir) --ghc-pkg-option=--package-conf=$(cabaldir) $(CABALFLAGS) install $*
+	$(INSTALL) -d $(dir $@)
+	touch $@
+
+install-cabal-%: $(depdir)/%/caballed
+	$(info Installed cabal package $*)
