@@ -102,7 +102,7 @@ dep2tgz = $(cachedir)/$(subst ://,/,$(call dep2uri,$(1)))
 $(depdir)/%/unpacked:
 	$(MAKE) $(call dep2tgz,$*)
 	$(INSTALL) -d $@
-	$(TAR) -C $@ -xf $(call dep2tgz,$*)
+	$(TAR) -C $@ -xzf $(call dep2tgz,$*)
 
 $(depdir)/%/downloaded:
 	@rm -rf $(dir $@)/unpacked
