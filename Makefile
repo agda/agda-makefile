@@ -74,11 +74,11 @@ $(htmldir)/%.html: $(agdadir)/%.agda $(agdafiles) $(agdadeps) $(htmldir)
 
 $(cachedir)/http/%:
 	$(CURL) --create-dirs -o $(tmpdir)/http/$* http://$*
-	$(INSTALL) -D $(tempdir)/http/$* $@
+	$(INSTALL) -D $(tmpdir)/http/$* $@
 
 $(cachedir)/https/%:
 	$(CURL) --create-dirs -o $(tmpdir)/https/$* https://$*
-	$(INSTALL) -D $(tempdir)/https/$* $@
+	$(INSTALL) -D $(tmpdir)/https/$* $@
 
 $(cachedir)/file/%: /%
 	$(INSTALL) -D $< $@
