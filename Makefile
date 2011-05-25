@@ -121,11 +121,12 @@ $(depdir)/%/unpacked:
 	$(TAR) -C $@ -xzf $(call dep2tgz,$*)
 
 $(depdir)/%/downloaded: $(depdir)/%/unpacked
-	@rm -f $(depdir)/$*/installed
+	@-rm $(depdir)/$*/installed
 	@echo $(call dep2uri,$*) > $@
 
 redownload-dependency-%:
-	@rm -f $(depdir)/$*/downloaded
+	@-rm $(depdir)/$*/downloaded
+	@-rm -r $(depdir)/$*/unpacked
 	$(MAKE) $(depdir)/$*/downloaded
 
 download-dependency-%: $(depdir)/%/downloaded
@@ -149,7 +150,7 @@ $(depdir)/%/cleaned: $(depdir)/%/downloaded
 	$(MAKE) $(dir $@)/unpacked/recursive-clean
 
 clean-dependency-%: $(depdir)/%/cleaned
-	@rm -f $(depdir)/$*/installed
+	@-rm $(depdir)/$*/installed
 
 clean-dependencies:
 	$(MAKE) $(addprefix clean-dependency-,$(dependencies))
