@@ -76,7 +76,7 @@ $(haskelldir)/%.hs: $(srcdir)/%.hs
 $(agdadir)/%.agdai: $(agdadir)/%.agda $(agdafiles) $(agdadeps)
 	$(AGDA) $(AGDAFLAGS) $<
 
-$(bindir)/%: $(agdadir)/%.agda $(agdafiles) $(haskellfiles) $(agdadeps) $(haskelldeps)
+$(bindir)/%: $(agdadir)/%.agda $(agdafiles) $(haskellfiles) $(agdadeps) $(haskelldeps) $(cabaldir)
 	$(AGDAC) $(AGDACFLAGS) --compile-dir=$(haskelldir) $<
 	$(INSTALL) -d $(dir $@)
 	mv $(haskelldir)/$(notdir $@) $@
