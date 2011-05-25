@@ -63,14 +63,9 @@ findfiles = $(if $(wildcard $(1)/.),$(foreach x,$(wildcard $(1)/*),$(call findfi
 
 stringeq = $(if $(subst $(1),,$(2)),,$(if $(subst $(2),,$(1)),,true))
 
-# Create the target directories if need be
-
-$(agdadir) $(bindir) $(builddir) $(cachedir) $(datadir) $(depdir) $(docdir) $(htmldir) $(tmpdir):
-	$(INSTALL) -d $@
-
 # Rules for building Agda libraries
 
-.PRECIOUS: $(agdadir)/%.agda $(haskelldir)/%.hs $(agdadir)/%.agdai $(htmldir)/%.html
+.PRECIOUS: $(agdadir)/%.agda $(haskelldir)/%.hs $(agdadir)/%.agdai $(bindir)/% $(htmldir)/%.html
 
 $(agdadir)/%.agda: $(srcdir)/%.agda
 	$(INSTALL) -D $< $@
@@ -81,13 +76,13 @@ $(haskelldir)/%.hs: $(srcdir)/%.hs
 $(agdadir)/%.agdai: $(agdadir)/%.agda $(agdafiles) $(agdadeps)
 	$(AGDA) $(AGDAFLAGS) $<
 
-$(bindir)/%: $(agdadir)/%.agda $(agdafiles) $(haskellfiles) $(agdadeps) $(haskelldeps) $(bindir)
+$(bindir)/%: $(agdadir)/%.agda $(agdafiles) $(haskellfiles) $(agdadeps) $(haskelldeps)
 	$(AGDAC) $(AGDACFLAGS) --compile-dir=$(haskelldir) $<
 	$(INSTALL) -d $(dir $@)
 	mv $(haskelldir)/$(notdir $@) $@
 
-$(htmldir)/%.html: $(agdadir)/%.agda $(agdafiles) $(agdadeps) $(htmldir)
-	$(AGDADOC) $(AGDADOCFLAGS) --html-dir $(htmldir) $<
+$(htmldir)/%.html: $(agdafiles) $(agdadeps)
+	$(AGDADOC) $(AGDADOCFLAGS) --html-dir $(htmldir) $(agdadir)/$(subst .,/,$*).agda
 
 # Rules for downloading files
 
@@ -130,15 +125,15 @@ $(depdir)/%/downloaded:
 	$(MAKE) $(dir $@)/unpacked
 	@echo $(call dep2uri,$*) > $@
 
-redownload-%:
-	@rm -f $(depdir)/%/downloaded
-	$(MAKE) $(depdir)/%/downloaded
+redownload-dependency-%:
+	@rm -f $(depdir)/$*/downloaded
+	$(MAKE) $(depdir)/$*/downloaded
 
-download-%: $(depdir)/%/downloaded
-	$(if $(call stringeq,$(call dep2uri,$*),$(shell cat $<)),,$(MAKE) redownload-$*)
+download-dependency-%: $(depdir)/%/downloaded
+	$(if $(call stringeq,$(call dep2uri,$*),$(shell cat $<)),,$(MAKE) redownload-dependency-$*)
 
 download-dependencies:
-	$(MAKE) $(addprefix download-,$(dependencies))
+	$(MAKE) $(addprefix download-dependency-,$(dependencies))
 
 # Rules to clean dependencies, by recursively calling make clean.
 
@@ -173,28 +168,26 @@ $(depdir)/%/recursive-install:
 
 .PRECIOUS: $(depdir)/%/installed
 
-$(depdir)/%/installed: $(depdir)/%/downloaded
+$(depdir)/%/installed:
 	$(MAKE) $(dir $@)/unpacked/recursive-install
 	@echo $(call dep2uri,$*) > $@
 
-install-dependency-%: $(depdir)/%/installed
+install-after-download-dependency-%: $(depdir)/%/installed
 	$(if $(call stringeq,$(call dep2uri,$*),$(shell cat $<)),, \
 	  $(error Package $* expected URI <$(call dep2uri,$*)> found <$(shell cat $<)>))
+
+install-dependency-%: download-dependency-% install-after-download-dependency-%
+	$(info Installed dependency $*)
 
 install-dependencies:
 	$(MAKE) $(addprefix install-dependency-,$(dependencies))
 
 # Targets to install dependencies via cabal
 
-.PRECIOUS: $(cabaldir) $(depdir)/%/caballed
+.PRECIOUS: $(cabaldir)
 
 $(cabaldir):
 	$(GHCPKG) init $(GHCPKGFLAGS) $@
 
-$(depdir)/%/caballed: $(cabaldir)
+install-cabal-%: $(cabaldir)
 	$(CABAL) --package-db=$(cabaldir) --ghc-pkg-option=--package-conf=$(cabaldir) $(CABALFLAGS) install $*
-	$(INSTALL) -d $(dir $@)
-	touch $@
-
-install-cabal-%: $(depdir)/%/caballed
-	$(info Installed cabal package $*)
