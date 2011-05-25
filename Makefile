@@ -120,9 +120,8 @@ $(depdir)/%/unpacked:
 	$(INSTALL) -d $@
 	$(TAR) -C $@ -xzf $(call dep2tgz,$*)
 
-$(depdir)/%/downloaded:
-	@rm -rf $(dir $@)/unpacked
-	$(MAKE) $(dir $@)/unpacked
+$(depdir)/%/downloaded: $(depdir)/%/unpacked
+	@rm -f $(depdir)/$*/installed
 	@echo $(call dep2uri,$*) > $@
 
 redownload-dependency-%:
